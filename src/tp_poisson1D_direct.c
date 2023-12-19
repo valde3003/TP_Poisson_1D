@@ -49,7 +49,7 @@ int main(int argc,char *argv[])
   ku=1;
   kl=1;
   lab=kv+kl+ku+1;
-
+  //EXO 4
   AB = (double *) malloc(sizeof(double)*lab*la);
   double *Y = (double *) malloc(sizeof(double) * la);
 
@@ -73,45 +73,72 @@ int main(int argc,char *argv[])
   printf("Erreur relative : %e\n", relative_error);
 
   printf("Solution with LAPACK\n");
-
+  //EXO 5
   //Fonction dgbtrf_
   dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
   set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
 
-  top = clock();
+  top1 = clock();
   dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-  fprintf(dgbtrf, "%f\n",((double)(clock() - top)/CLOCKS_PER_SEC));
+  fprintf(dgbtrf, "%f\n",((double)(clock() - top1)/CLOCKS_PER_SEC));
   
   //Fonction dgbsv
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
   set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
 
-  top = clock();
+  top2 = clock();
   dgbsv_(&la, &kl, &ku, &NRHS, AB, &lab, ipiv, EX_RHS, &la, &info);
-  fprintf(direct, "%f\n",((double)(clock() - top)/CLOCKS_PER_SEC));
+  fprintf(direct, "%f\n",((double)(clock() - top2)/CLOCKS_PER_SEC));
 
+  //EXO 6
   /* LU Factorization */
+
+  LU = (double *) malloc(sizeof(double)*lab*la);
+
+  factorisation_LU(LU, &lab, &la, &kv);
+  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
+
+  //Avec dgbtrf
   info=0;
   ipiv = (int *) calloc(la, sizeof(int));
 
-  /* LU for tridiagonal matrix  (can replace dgbtrf_) */
-  // ierr = dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-
-  // write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
-  
-  /* Solution (Triangular) */
-  if (info==0){
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+    if (info==0){
     dgbtrs_("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
     if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
   }else{
     printf("\n INFO = %d\n",info);
   }
 
+  //Méthode de validation 
+  double norm = cblas_dnrm2(la, RHS, 1);
+  cblas_daxpy(la*lab, -1, AB, 1, LU, 1);
+  double err2 = cblas_dnrm2(la, LU, 1);
+  double relative_error2 = err2 / norm;
+
+  printf("Erreur relative : %e\n", relative_error2);
+  
+
+  write_xy(RHS, X, &la, "SOL.dat");
+  
+
+  /* LU for tridiagonal matrix  (can replace dgbtrf_) */
+  // ierr = dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+  
+  /* Solution (Triangular) */
+  /*if (info==0){
+    dgbtrs_("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
+    if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
+  }else{
+    printf("\n INFO = %d\n",info);
+  }*/
+
   /* It can also be solved with dgbsv */
   // TODO : use dgbsv
 
-  write_xy(RHS, X, &la, "SOL.dat");
+  //write_xy(RHS, X, &la, "SOL.dat");
 
   /* Relative forward error */
   // TODO : Compute relative norm of the residual
@@ -123,5 +150,6 @@ int main(int argc,char *argv[])
   free(X);
   free(AB);
   free(Y);
+  free(LU);
   printf("\n\n--------- End -----------\n");
 }

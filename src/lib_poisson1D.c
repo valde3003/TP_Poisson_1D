@@ -157,3 +157,34 @@ int indexABCol(int i, int j, int *lab){
 int dgbtrftridiag(int *la, int*n, int *kl, int *ku, double *AB, int *lab, int *ipiv, int *info){
   return *info;
 }
+
+void factorisation_LU(double* AB, int *lab, int *la, int *kv) 
+{
+    int diag = 2 * (*kv) + 1;
+
+    int i; 
+
+    for (i = 0; i < *la - 1; ++i) 
+    {
+        int k = i * (*lab);
+
+        if (AB[k + *kv] == 0) 
+        {
+            printf("Erreur: Élément diagonal nul.\n");
+            return;
+        }
+        
+        int j;
+
+        for ( j = i + 1; j < *la && j <= i + *kv; ++j) 
+        {
+            int kj = j * (*lab);
+            double m = AB[kj + *kv - (j - i)] /= AB[k + *kv];
+
+            for (int d = 1; d < diag - (j - i); ++d) 
+            {
+                AB[kj + *kv - (j - i) + d] -= m * AB[k + *kv + d];
+            }
+        }
+    }
+}
