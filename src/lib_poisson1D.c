@@ -53,7 +53,16 @@ void set_dense_RHS_DBC_1D(double* RHS, int* la, double* BC0, double* BC1)
     }
 }  
 
-void set_analytical_solution_DBC_1D(double* EX_SOL, double* X, int* la, double* BC0, double* BC1){
+void set_analytical_solution_DBC_1D(double* EX_SOL, double* X, int* la, double* BC0, double* BC1)
+{
+  double h = 1.0 / (*la + 1);
+  double delta_T = *BC1 - *BC0;
+
+  for (int i = 0; i < *la; i++) 
+  {
+      X[i] = (i + 1) * h;
+      EX_SOL[i] = *BC0 + X[i] * delta_T;
+  }
 }  
 
 void set_grid_points_1D(double* x, int* la){
@@ -188,3 +197,5 @@ void factorisation_LU(double* AB, int *lab, int *la, int *kv)
         }
     }
 }
+
+

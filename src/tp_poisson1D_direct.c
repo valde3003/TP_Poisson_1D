@@ -120,7 +120,7 @@ int main(int argc,char *argv[])
 
   printf("Erreur relative : %e\n", relative_error2);
   
-
+  
   write_xy(RHS, X, &la, "SOL.dat");
   
 
