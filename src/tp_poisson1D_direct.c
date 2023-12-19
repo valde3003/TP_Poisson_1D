@@ -19,9 +19,10 @@ int main(int argc,char *argv[])
   int info;
   int NRHS;
   double T0, T1;
-  double *RHS, *EX_SOL, *X;
+  double *RHS, *EX_SOL, *EX_RHS, *X;
   double **AAB;
   double *AB;
+  double *LU;
 
   double temp, relres;
 
@@ -62,7 +63,7 @@ int main(int argc,char *argv[])
   write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "AB.dat");
 
   //Fonction CBLAS dgbmv avec cette matrice 
-  cblas_dgbmv(CblasColMajor, CblasConjNoTrans, la, la, kl, ku, 1.0, AB+1, lab, EX_SOL, 1, 0.0, Y, 1);
+  cblas_dgbmv(CblasColMajor, CblasConjTrans, la, la, kl, ku, 1.0, AB+1, lab, EX_SOL, 1, 0.0, Y, 1);
 
   //Méthode de validation avec l'erreur relative 
   double norm = cblas_dnrm2(la, RHS, 1);
@@ -73,23 +74,25 @@ int main(int argc,char *argv[])
   printf("Erreur relative : %e\n", relative_error);
 
   printf("Solution with LAPACK\n");
-  //EXO 5
+  /*//EXO 5
   //Fonction dgbtrf_
   dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
   set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
 
+  clock_t top1;
   top1 = clock();
   dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-  fprintf(dgbtrf, "%f\n",((double)(clock() - top1)/CLOCKS_PER_SEC));
+  fprintf(dgbtrf_, "%f\n",((double)(clock() - top1)/CLOCKS_PER_SEC));
   
   //Fonction dgbsv
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
   set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
 
+  clock_t top2;
   top2 = clock();
   dgbsv_(&la, &kl, &ku, &NRHS, AB, &lab, ipiv, EX_RHS, &la, &info);
-  fprintf(direct, "%f\n",((double)(clock() - top2)/CLOCKS_PER_SEC));
+  fprintf(dgbsv_, "%f\n",((double)(clock() - top2)/CLOCKS_PER_SEC));*/
 
   //EXO 6
   /* LU Factorization */
@@ -104,16 +107,16 @@ int main(int argc,char *argv[])
   ipiv = (int *) calloc(la, sizeof(int));
 
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
-  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+  /*dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
     if (info==0){
     dgbtrs_("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
     if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
   }else{
     printf("\n INFO = %d\n",info);
-  }
+  }*/
 
   //Méthode de validation 
-  double norm = cblas_dnrm2(la, RHS, 1);
+  norm = cblas_dnrm2(la, RHS, 1);
   cblas_daxpy(la*lab, -1, AB, 1, LU, 1);
   double err2 = cblas_dnrm2(la, LU, 1);
   double relative_error2 = err2 / norm;
