@@ -5,6 +5,7 @@
 /******************************************/
 #include "lib_poisson1D.h"
 #include "atlas_headers.h"
+#include <time.h>
 
 int main(int argc,char *argv[])
 /* ** argc: Nombre d'arguments */
@@ -71,11 +72,28 @@ int main(int argc,char *argv[])
 
   printf("Erreur relative : %e\n", relative_error);
 
-  //printf("Solution with LAPACK\n");
+  printf("Solution with LAPACK\n");
+
+  //Fonction dgbtrf_
+  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
+
+  top = clock();
+  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+  fprintf(dgbtrf, "%f\n",((double)(clock() - top)/CLOCKS_PER_SEC));
+  
+  //Fonction dgbsv
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
+
+  top = clock();
+  dgbsv_(&la, &kl, &ku, &NRHS, AB, &lab, ipiv, EX_RHS, &la, &info);
+  fprintf(direct, "%f\n",((double)(clock() - top)/CLOCKS_PER_SEC));
+
   /* LU Factorization */
   info=0;
   ipiv = (int *) calloc(la, sizeof(int));
-  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
 
   /* LU for tridiagonal matrix  (can replace dgbtrf_) */
   // ierr = dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
