@@ -50,12 +50,28 @@ int main(int argc,char *argv[])
   lab=kv+kl+ku+1;
 
   AB = (double *) malloc(sizeof(double)*lab*la);
+  double *Y = (double *) malloc(sizeof(double) * la);
+
+  for (jj = 0; jj < la; jj++) 
+  {
+    Y[jj] = 0.0;
+  }
 
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "AB.dat");
 
-  // write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "AB.dat");
+  //Fonction CBLAS dgbmv avec cette matrice 
+  cblas_dgbmv(CblasColMajor, CblasConjNoTrans, la, la, kl, ku, 1.0, AB+1, lab, EX_SOL, 1, 0.0, Y, 1);
 
-  printf("Solution with LAPACK\n");
+  //Méthode de validation avec l'erreur relative 
+  double norm = cblas_dnrm2(la, RHS, 1);
+  cblas_daxpy(la, -1.0, Y, 1, RHS, 1);
+  double err = cblas_dnrm2(la, RHS, 1);
+  double relative_error = err / norm;
+
+  printf("Erreur relative : %e\n", relative_error);
+
+  //printf("Solution with LAPACK\n");
   /* LU Factorization */
   info=0;
   ipiv = (int *) calloc(la, sizeof(int));
@@ -88,5 +104,6 @@ int main(int argc,char *argv[])
   free(EX_SOL);
   free(X);
   free(AB);
+  free(Y);
   printf("\n\n--------- End -----------\n");
 }

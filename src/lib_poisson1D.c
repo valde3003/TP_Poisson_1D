@@ -5,7 +5,28 @@
 /**********************************************/
 #include "lib_poisson1D.h"
 
-void set_GB_operator_colMajor_poisson1D(double* AB, int *lab, int *la, int *kv){
+void set_GB_operator_colMajor_poisson1D(double* AB, int *lab, int *la, int *kv)
+{
+  int i,j,k;
+  int diag = *kv + *kv + 1;  
+
+    for (j = 0; j < *la; j++) 
+    {
+        k = j * (*lab); 
+        for (i = 0; i < *lab; i++) 
+        {
+            AB[k + i] = 0.0;
+        }
+        if (j != 0) 
+        {
+            AB[k] = -1.0;
+        }
+        AB[k + *kv] = 2.0;
+        if (j != *la - 1) 
+        {
+            AB[k + diag - 1] = -1.0;
+        }
+    }
 }
 
 void set_GB_operator_colMajor_poisson1D_Id(double* AB, int *lab, int *la, int *kv){
