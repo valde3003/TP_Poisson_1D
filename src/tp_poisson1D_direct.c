@@ -7,6 +7,10 @@
 #include "atlas_headers.h"
 #include <time.h>
 
+#define TRF 0
+#define TRI 1
+#define SV 2
+
 int main(int argc,char *argv[])
 /* ** argc: Nombre d'arguments */
 /* ** argv: Valeur des arguments */
@@ -16,15 +20,23 @@ int main(int argc,char *argv[])
   int nbpoints, la;
   int ku, kl, kv, lab;
   int *ipiv;
-  int info;
+  int info = 1;
   int NRHS;
+  int IMPLEM = 0;
   double T0, T1;
-  double *RHS, *EX_SOL, *EX_RHS, *X;
+  double *RHS, *EX_SOL, *X;
   double **AAB;
   double *AB;
   double *LU;
 
-  double temp, relres;
+  double relres;
+
+  if (argc == 2) {
+    IMPLEM = atoi(argv[1]);
+  } else if (argc > 2) {
+    perror("Application takes at most one argument");
+    exit(1);
+  }
 
   NRHS=1;
   nbpoints=10;
@@ -42,25 +54,28 @@ int main(int argc,char *argv[])
   set_dense_RHS_DBC_1D(RHS,&la,&T0,&T1);
   set_analytical_solution_DBC_1D(EX_SOL, X, &la, &T0, &T1);
   
-  write_vec(RHS, &la, "RHS.dat");
-  write_vec(EX_SOL, &la, "EX_SOL.dat");
-  write_vec(X, &la, "X_grid.dat");
+  write_vec(RHS, &la, "RHS_direct.dat");
+  write_vec(EX_SOL, &la, "EX_SOL_direct.dat");
+  write_vec(X, &la, "X_grid_direct.dat");
 
   kv=1;
   ku=1;
   kl=1;
   lab=kv+kl+ku+1;
-  //EXO 4
-  AB = (double *) malloc(sizeof(double)*lab*la);
-  double *Y = (double *) malloc(sizeof(double) * la);
 
+ 
+  AB = (double *) malloc(sizeof(double)*lab*la);
+  LU = (double *) malloc(sizeof(double)*lab*la);
+  double *Y = (double *) malloc(sizeof(double) * la);
+  //EXO 4
   for (jj = 0; jj < la; jj++) 
   {
     Y[jj] = 0.0;
   }
 
   set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
-  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "AB.dat");
+  set_GB_operator_colMajor_poisson1D(LU, &lab, &la, &kv);
+  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "AB_direct.dat");
 
   //Fonction CBLAS dgbmv avec cette matrice 
   cblas_dgbmv(CblasColMajor, CblasConjTrans, la, la, kl, ku, 1.0, AB+1, lab, EX_SOL, 1, 0.0, Y, 1);
@@ -73,47 +88,45 @@ int main(int argc,char *argv[])
 
   printf("Erreur relative : %e\n", relative_error);
 
+
   printf("Solution with LAPACK\n");
-  /*//EXO 5
-  //Fonction dgbtrf_
-  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
-  set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
+  ipiv = (int *) calloc(la, sizeof(int));
 
-  clock_t top1;
-  top1 = clock();
-  dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-  fprintf(dgbtrf_, "%f\n",((double)(clock() - top1)/CLOCKS_PER_SEC));
+  //EXO 5
+  /* LU Factorization */
+  //if (IMPLEM == TRF) {}
+  //Avec dgbtrf
+    dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
   
-  //Fonction dgbsv
-  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
-  set_dense_RHS_DBC_1D(EX_RHS,&la,&T0,&T1);
 
-  clock_t top2;
-  top2 = clock();
-  dgbsv_(&la, &kl, &ku, &NRHS, AB, &lab, ipiv, EX_RHS, &la, &info);
-  fprintf(dgbsv_, "%f\n",((double)(clock() - top2)/CLOCKS_PER_SEC));*/
+  /* LU for tridiagonal matrix  (can replace dgbtrf_) */
+  //if (IMPLEM == TRI) {}
+    dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+
+  //if (IMPLEM == TRI || IMPLEM == TRF){}
+    /* Solution (Triangular) */
+    if (info==0){
+     // LAPACK_dgbtrf("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
+      if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
+    }else{
+      printf("\n INFO = %d\n",info);
+    }
+  
+
+  /* It can also be solved with dgbsv */
+  //if (IMPLEM == SV) {}
+  // TODO : use dgbsv
+  
+
+  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
+  write_xy(RHS, X, &la, "SOL_direct.dat");
 
   //EXO 6
   /* LU Factorization */
 
-  LU = (double *) malloc(sizeof(double)*lab*la);
+  factorisation_LU(AB, &lab, &la, &kv);
+  write_GB_operator_colMajor_poisson1D(LU, &lab, &la, "LU_fac.dat");
 
-  factorisation_LU(LU, &lab, &la, &kv);
-  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
-
-  //Avec dgbtrf
-  info=0;
-  ipiv = (int *) calloc(la, sizeof(int));
-
-  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
-  /*dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-    if (info==0){
-    dgbtrs_("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
-    if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
-  }else{
-    printf("\n INFO = %d\n",info);
-  }*/
 
   //Méthode de validation 
   norm = cblas_dnrm2(la, RHS, 1);
@@ -122,29 +135,9 @@ int main(int argc,char *argv[])
   double relative_error2 = err2 / norm;
 
   printf("Erreur relative : %e\n", relative_error2);
-  
-  
-  write_xy(RHS, X, &la, "SOL.dat");
-  
-
-  /* LU for tridiagonal matrix  (can replace dgbtrf_) */
-  // ierr = dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-  
-  /* Solution (Triangular) */
-  /*if (info==0){
-    dgbtrs_("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
-    if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
-  }else{
-    printf("\n INFO = %d\n",info);
-  }*/
-
-  /* It can also be solved with dgbsv */
-  // TODO : use dgbsv
-
-  //write_xy(RHS, X, &la, "SOL.dat");
 
   /* Relative forward error */
-  // TODO : Compute relative norm of the residual
+  relres = relative_forward_error(RHS, EX_SOL, &la);
   
   printf("\nThe relative forward error is relres = %e\n",relres);
 
@@ -152,7 +145,5 @@ int main(int argc,char *argv[])
   free(EX_SOL);
   free(X);
   free(AB);
-  free(Y);
-  free(LU);
   printf("\n\n--------- End -----------\n");
 }
