@@ -73,13 +73,6 @@ void set_grid_points_1D(double* x, int* la)
   }
 }
 
-double relative_forward_error(double* x, double* y, int* la)
-{
-  double normx = cblas_dnrm2(*la,x,1);
-  cblas_daxpy(*la,-1.0,y,1,x,1);
-
-  return (cblas_dnrm2(*la,x,1)/normx);
-}
 
 void write_GB_operator_rowMajor_poisson1D(double* AB, int* lab, int* la, char* filename){
   FILE * file;

@@ -4,6 +4,8 @@
 /* to solve the Poisson 1D problem        */
 /******************************************/
 #include "lib_poisson1D.h"
+#include "atlas_headers.h"
+#include <time.h>
 
 #define ALPHA 0
 #define JAC 1
@@ -79,7 +81,7 @@ int main(int argc,char *argv[])
 
   /* Computation of optimum alpha */
   opt_alpha = richardson_alpha_opt(&la);
-  printf("Optimal alpha for simple Richardson iteration is : %lf\n",opt_alpha); 
+  printf("Optimal alpha for simple Richardson iteration is : %lf\n",opt_alpha);
 
   /* Solve */
   double tol=1e-3;
@@ -91,8 +93,24 @@ int main(int argc,char *argv[])
 
   /* Solve with Richardson alpha */
   //if (IMPLEM == ALPHA) {
-  printf("Richardson alpha\n\n");
+  clock_t richardson_begin = clock();
   richardson_alpha(AB, RHS, SOL, &opt_alpha, &lab, &la, &ku, &kl, &tol, &maxit, resvec, &nbite);
+  clock_t richardson_end = clock();
+
+  double richardson_delta = (double) (richardson_end - richardson_begin) / CLOCKS_PER_SEC;
+  printf("Time RICHARDSON = %f sec\n", richardson_delta);
+
+  write_vec(SOL, &la, "SOL_RICHARDSON.dat");
+  write_vec(resvec, &nbite, "RESVEC_RICHARDSON.dat");
+
+  //Calcul erreur relative
+  temp = cblas_dnrm2(la, EX_SOL, 1);
+  cblas_daxpy(la, -1.0, SOL, 1, EX_SOL, 1);
+  relres = cblas_dnrm2(la, EX_SOL, 1);
+  relres = relres / temp;
+
+  printf("\nThe relative forward error for RICHARDSON is relres = %e\n\n",relres);
+
   /* Richardson General Tridiag */
 
   /* get MB (:=M, D for Jacobi, (D-E) for Gauss-seidel) */
@@ -100,23 +118,28 @@ int main(int argc,char *argv[])
   ku = 1;
   kl = 1;
   MB = (double *) malloc(sizeof(double)*(lab)*la);
-  if (IMPLEM == JAC) {
-    extract_MB_jacobi_tridiag(AB, MB, &lab, &la, &ku, &kl, &kv);
-  } else if (IMPLEM == GS) {
-    extract_MB_gauss_seidel_tridiag(AB, MB, &lab, &la, &ku, &kl, &kv);
-  }
+  SOL=(double *) calloc(la, sizeof(double));
+  resvec=(double *) calloc(maxit, sizeof(double));
+  
+  clock_t jacobi_begin = clock();
+  extract_MB_jacobi_tridiag(AB, MB, &lab, &la, &ku, &kl, &kv);
+  richardson_MB(AB, RHS, SOL, MB, &lab, &la, &ku, &kl, &tol, &maxit, resvec, &nbite, 0);
+  clock_t jacobi_end = clock();
 
-  /* Solve with General Richardson */
-  if (IMPLEM == JAC || IMPLEM == GS) {
-    write_GB_operator_colMajor_poisson1D(MB, &lab, &la, "MB.dat");
-    richardson_MB(AB, RHS, SOL, MB, &lab, &la, &ku, &kl, &tol, &maxit, resvec, &nbite);
-  }
+  double jacobi_delta = (double) (jacobi_end - jacobi_begin) / CLOCKS_PER_SEC;
+  printf("Time JAKOBI = %f sec\n", jacobi_delta);
 
-  /* Write solution */
-  write_vec(SOL, &la, "SOL_iter.dat");
+  write_vec(SOL, &la, "SOL_JAKOBI.dat");
+  write_vec(resvec, &nbite, "RESVEC_JAKOBI.dat");
+  
+  //Calcul erreur relative
+  set_analytical_solution_DBC_1D(EX_SOL, X, &la, &T0, &T1);
+  temp = cblas_dnrm2(la, EX_SOL, 1);
+  cblas_daxpy(la, -1.0, SOL, 1, EX_SOL, 1);
+  relres = cblas_dnrm2(la, EX_SOL, 1);
+  relres = relres / temp;
 
-  /* Write convergence history */
-  write_vec(resvec, &nbite, "RESVEC.dat");
+  printf("\nThe relative forward error for JACOBI is relres = %e\n\n",relres);
 
   free(resvec);
   free(RHS);

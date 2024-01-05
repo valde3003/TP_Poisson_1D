@@ -39,7 +39,7 @@ int main(int argc,char *argv[])
   }
 
   NRHS=1;
-  nbpoints=10;
+  nbpoints=15;
   la=nbpoints-2;
   T0=-5.0;
   T1=5.0;
@@ -91,41 +91,56 @@ int main(int argc,char *argv[])
 
   printf("Solution with LAPACK\n");
   ipiv = (int *) calloc(la, sizeof(int));
+  //Exo 5
+  //Avec dgbtrf/dgbtrs
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  set_dense_RHS_DBC_1D(RHS,&la,&T0,&T1);
+  clock_t dgbtrs_begin = clock();
+  info = LAPACKE_dgbtrf(LAPACK_COL_MAJOR, la, la, kl, ku, AB, lab, ipiv);
+  info = LAPACKE_dgbtrs(LAPACK_COL_MAJOR, 'N', la, kl, ku, NRHS, AB, lab, ipiv, RHS, la);
+  clock_t dgbtrs_end = clock();
 
-  //EXO 5
-  /* LU Factorization */
-  //if (IMPLEM == TRF) {}
-  //Avec dgbtrf
-    dgbtrf_(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
+  write_vec(RHS, &la, "dgbtrf.dat");
+
+  //time
+  double dgbtrs_delta = (double) (dgbtrs_end - dgbtrs_begin) / CLOCKS_PER_SEC;
+  printf("Time DGBTRF + DGBTRS = %f sec\n", dgbtrs_delta);
+
+  //Avec dgbsv
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  set_dense_RHS_DBC_1D(RHS,&la,&T0,&T1);
+  clock_t dgbsv_begin = clock();
+  info = LAPACKE_dgbsv(LAPACK_COL_MAJOR, la, kl, ku, NRHS, AB, lab, ipiv, RHS, la);
+  clock_t dgbsv_end = clock();
+  write_vec(RHS, &la, "dgbsv.dat");
+
+  // Time
+  double dgbsv_delta = (double) (dgbsv_end - dgbsv_begin) / CLOCKS_PER_SEC;
+  printf("Time DGBSV = %f sec\n", dgbsv_delta);
   
-
-  /* LU for tridiagonal matrix  (can replace dgbtrf_) */
-  //if (IMPLEM == TRI) {}
-    dgbtrftridiag(&la, &la, &kl, &ku, AB, &lab, ipiv, &info);
-
-  //if (IMPLEM == TRI || IMPLEM == TRF){}
-    /* Solution (Triangular) */
-    if (info==0){
-     // LAPACK_dgbtrf("N", &la, &kl, &ku, &NRHS, AB, &lab, ipiv, RHS, &la, &info);
-      if (info!=0){printf("\n INFO DGBTRS = %d\n",info);}
-    }else{
-      printf("\n INFO = %d\n",info);
-    }
   
-
-  /* It can also be solved with dgbsv */
-  //if (IMPLEM == SV) {}
-  // TODO : use dgbsv
+  /*write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
+  write_xy(RHS, X, &la, "SOL_direct.dat");*/
   
-
-  write_GB_operator_colMajor_poisson1D(AB, &lab, &la, "LU.dat");
-  write_xy(RHS, X, &la, "SOL_direct.dat");
-
   //EXO 6
   /* LU Factorization */
-
+  clock_t LU_begin = clock();
   factorisation_LU(AB, &lab, &la, &kv);
+  clock_t LU_end = clock();
   write_GB_operator_colMajor_poisson1D(LU, &lab, &la, "LU_fac.dat");
+
+  double LU_delta = (double) (LU_end - LU_begin) / CLOCKS_PER_SEC;
+  printf("Time LU factorisation = %f sec\n", LU_delta);
+
+  // LU avec LAPACK dgbtrf
+  set_GB_operator_colMajor_poisson1D(AB, &lab, &la, &kv);
+  clock_t dgbtrf_begin = clock();
+  LAPACKE_dgbtrf(LAPACK_COL_MAJOR, la, la, kl, ku, AB, lab, ipiv);
+  clock_t dgbtrf_end = clock();
+  write_GB_operator_colMajor_poisson1D(LU, &lab, &la, "LAPACKE_dgbtrf.dat");
+
+  double LU_dgbtrf = (double) (LU_end - LU_begin) / CLOCKS_PER_SEC;
+  printf("Time LU factorisation LAPACK = %f sec\n", LU_dgbtrf);
 
 
   //Méthode de validation 
@@ -137,7 +152,7 @@ int main(int argc,char *argv[])
   printf("Erreur relative : %e\n", relative_error2);
 
   /* Relative forward error */
-  relres = relative_forward_error(RHS, EX_SOL, &la);
+  //relres = relative_forward_error(RHS, EX_SOL, &la);
   
   printf("\nThe relative forward error is relres = %e\n",relres);
 
